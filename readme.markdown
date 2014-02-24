@@ -1,168 +1,87 @@
-# JSONStream
+# json-stream-values
 
-streaming JSON.parse and stringify
-
-<img src=https://secure.travis-ci.org/dominictarr/JSONStream.png?branch=master>
+Takes a json stream and emits, for each value, an array of keys leading to it, ending with the value itself. Optionally pass a function to alter the array before being emitted.
 
 ## example
 
 ``` js
 
-var request = require('request')
-  , JSONStream = require('JSONStream')
-  , es = require('event-stream')
+var jsonStreamValues = require('JSONStream');
+var es = require('event-stream');
+var Readable = require('stream').Readable;
 
-var parser = JSONStream.parse(['rows', true])
-  , req = request({url: 'http://isaacs.couchone.com/registry/_all_docs'})
-  , logger = es.mapSync(function (data) {
-      console.error(data)
-      return data
-    })
+// Example json stream
+var stream = new Readable;
+stream.push('{"a":{"b":"c","x":"y"');
+stream.push(',"1":{"2":["3","4');
+stream.push('"]}}}');
+stream.push(null);
 
-  request({url: 'http://isaacs.couchone.com/registry/_all_docs'})
-    .pipe(JSONStream.parse('rows.*'))
-    .pipe(es.mapSync(function (data) {
-      console.error(data)
-      return data
-    }))
+var parse = jsonStreamValues.parse();
+
+stream
+	.pipe(parse)
+	.pipe(es.mapSync(function(data){
+		console.log(data);
+	}))
+
+/* Logs:
+	[ 'a', 'b', 'c' ]
+	[ 'a', 'x', 'y' ]
+	[ 'a', '1', '2', 0, '3' ]
+	[ 'a', '1', '2', 1, '4' ]
+*/
+
 ```
 
-## JSONStream.parse(path)
-
-parse stream of values that match a path
+An example passing a handler function and ignoring array indexes:
 
 ``` js
-  JSONStream.parse('rows.*.doc')
-```
 
-The `..` operator is the recursive descent operator from [JSONPath](http://goessner.net/articles/JsonPath/), which will match a child at any depth (see examples below).
+var jsonStreamValues = require('JSONStream');
+var es = require('event-stream');
+var Readable = require('stream').Readable;
 
-If your keys have keys that include `.` or `*` etc, use an array instead.
-`['row', true, /^doc/]`.
+// Example json stream with arrays
+var stream = new Readable;
+stream.push('{"That":{"is":["cool", "inter');
+stream.push('esting", {"very":"awesome"}, 1337]}, ');
+stream.push('"isn\'t":[]}'); // *
+stream.push(null);
+  
+var parse = jsonStreamValues.parse(function(path){
+	var last = path.length-1;
+	return path.filter(function(v, i){
+	  // Ignore array indexes (numbers)
+	  // but not the value at the end
+		return (typeof v == 'string')||(i==last);
+	})
+})
 
-If you use an array, `RegExp`s, booleans, and/or functions. The `..` operator is also available in array representation, using `{recurse: true}`.
-any object that matches the path will be emitted as 'data' (and `pipe`d down stream)
+stream
+	.pipe(parse)
+	.pipe(es.mapSync(function(data){
+		console.log(data);
+	}))
 
-If `path` is empty or null, no 'data' events are emitted.
-
-### Examples
-
-query a couchdb view:
-
-``` bash
-curl -sS localhost:5984/tests/_all_docs&include_docs=true
-```
-you will get something like this:
-
-``` js
-{"total_rows":129,"offset":0,"rows":[
-  { "id":"change1_0.6995461115147918"
-  , "key":"change1_0.6995461115147918"
-  , "value":{"rev":"1-e240bae28c7bb3667f02760f6398d508"}
-  , "doc":{
-      "_id":  "change1_0.6995461115147918"
-    , "_rev": "1-e240bae28c7bb3667f02760f6398d508","hello":1}
-  },
-  { "id":"change2_0.6995461115147918"
-  , "key":"change2_0.6995461115147918"
-  , "value":{"rev":"1-13677d36b98c0c075145bb8975105153"}
-  , "doc":{
-      "_id":"change2_0.6995461115147918"
-    , "_rev":"1-13677d36b98c0c075145bb8975105153"
-    , "hello":2
-    }
-  },
-]}
+/* Logs:
+	[ 'That', 'is', 'cool' ]
+	[ 'That', 'is', 'interesting' ]
+	[ 'That', 'is', 'very', 'awesome' ]
+	[ 'That', 'is', 1337 ]
+*/
 
 ```
 
-we are probably most interested in the `rows.*.docs`
+* Note that empty arrays and objects ([] or {}) emit nothing. "That isn't" is not in the output.
 
-create a `Stream` that parses the documents from the feed like this:
 
-``` js
-var stream = JSONStream.parse(['rows', true, 'doc']) //rows, ANYTHING, doc
 
-stream.on('data', function(data) {
-  console.log('received:', data);
-});
-
-stream.on('root', function(root, count) {
-  if (!count) {
-    console.log('no matches found:', root);
-  }
-});
-```
-awesome!
-
-### recursive patterns (..)
-
-`JSONStream.parser('docs..value')` 
-(or `JSONStream.parser(['docs', {recurse: true}, 'value'])` using an array)
-will emit every `value` object that is a child, grand-child, etc. of the 
-`docs` object. In this example, it will match exactly 5 times at various depth
-levels, emitting 0, 1, 2, 3 and 4 as results.
-
-```js
-{
-  "total": 5,
-  "docs": [
-    {
-      "key": {
-        "value": 0,
-        "some": "property"
-      }
-    },
-    {"value": 1},
-    {"value": 2},
-    {"blbl": [{}, {"a":0, "b":1, "value":3}, 10]},
-    {"value": 4}
-  ]
-}
-```
-
-## JSONStream.stringify(open, sep, close)
-
-Create a writable stream.
-
-you may pass in custom `open`, `close`, and `seperator` strings.
-But, by default, `JSONStream.stringify()` will create an array,
-(with default options `open='[\n', sep='\n,\n', close='\n]\n'`)
-
-If you call `JSONStream.stringify(false)`
-the elements will only be seperated by a newline.
-
-If you only write one item this will be valid JSON.
-
-If you write many items,
-you can use a `RegExp` to split it into valid chunks.
-
-## JSONStream.stringifyObject(open, sep, close)
-
-Very much like `JSONStream.stringify`,
-but creates a writable stream for objects instead of arrays.
-
-Accordingly, `open='{\n', sep='\n,\n', close='\n}\n'`.
-
-When you `.write()` to the stream you must supply an array with `[ key, data ]`
-as the first argument.
-
-## numbers
-
-There are occasional problems parsing and unparsing very precise numbers.
-
-I have opened an issue here:
-
-https://github.com/creationix/jsonparse/issues/2
-
-+1
 
 ## Acknowlegements
 
-this module depends on https://github.com/creationix/jsonparse
-by Tim Caswell
-and also thanks to Florent Jaby for teaching me about parsing with:
-https://github.com/Floby/node-json-streams
+Credit goes to Dominic Tarr for [JSONStream](https://github.com/dominictarr/JSONStream) which this is forked from, 
+and Tim Caswell for [jsonparse](https://github.com/creationix/jsonparse) which it is dependent on.
 
 ## license
 
