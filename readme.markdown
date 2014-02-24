@@ -2,7 +2,9 @@
 
 Takes a json stream and emits, for each value, an array of keys leading to it, ending with the value itself. Optionally pass a function to alter the array before being emitted.
 
-## example
+todo: tests
+
+## Examples
 
 ``` js
 
@@ -73,7 +75,7 @@ stream
 
 ```
 
-* Note that empty arrays and objects ([] or {}) emit nothing. "That isn't" is not in the output.
+\* Note that empty arrays and objects ([] or {}) emit nothing. "That isn't" is not in the output.
 
 
 
