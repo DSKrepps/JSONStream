@@ -1,11 +1,11 @@
 {
-  "name": "JSONStream",
-  "version": "0.7.1",
-  "description": "rawStream.pipe(JSONStream.parse()).pipe(streamOfObjects)",
-  "homepage": "http://github.com/dominictarr/JSONStream",
+  "name": "json-stream-values",
+  "version": "0.0.1",
+  "description": "Emit each value individually with their ancestor keys.",
+  "homepage": "https://github.com/DSKrepps/json-stream-values",
   "repository": {
     "type": "git",
-    "url": "git://github.com/dominictarr/JSONStream.git"
+    "url": "git://github.com/DSKrepps/json-stream-values.git"
   },
   "keywords": [
     "json",
@@ -27,7 +27,7 @@
     "event-stream": "~0.7.0",
     "tape": "~0.3.3"
   },
-  "author": "Dominic Tarr <dominic.tarr@gmail.com> (http://bit.ly/dominictarr)",
+  "author": "Dylan Krepps <DSKrepps+requireFrom@gmail.com> (https://github.com/DSKrepps)",
   "scripts": {
     "test": "set -e; for t in test/*.js; do echo '***' $t '***'; node $t; done"
   },
